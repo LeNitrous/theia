@@ -1,0 +1,26 @@
+html {
+    overflow: hidden !important;
+}
+
+body {
+    background-color: darken($base-color, 3%);
+    min-height: 100vh;
+    user-select: none;
+}
+
+.container#main {
+    padding: 2rem;
+}
+
+@font-face {
+    font-family: "Creo Extra Bold";
+    src: url("../src/assets/fonts/Creo-ExtraBold.ttf");
+}
+
+$radius: 0px;
+
+$input-focus-color: transparent;
+$input-focus-border-color: transparent;
+
+@import "~bulma";
+@import "~buefy/src/scss/buefy";
