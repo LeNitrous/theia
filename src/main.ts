@@ -38,11 +38,19 @@ Vue.use(vuescroll, {
 
 const store = new Vuex.Store({
     state: {
-        searchResults: [],
+        episodes: { count: undefined, query: undefined },
+        results: undefined,
+        show: undefined,
     },
     mutations: {
         SET_SEARCH_RESULTS(state, payload) {
-            state.searchResults = payload;
+            state.results = payload;
+        },
+        SET_SELECTED_SHOW(state, payload) {
+            state.show = payload;
+        },
+        SET_EPISODE_INFO(state, payload) {
+            state.episodes = payload;
         },
     },
 });

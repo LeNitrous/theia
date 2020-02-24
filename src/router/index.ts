@@ -21,7 +21,7 @@ const routes = [
         component: () => import("../views/show.vue")
     },
     {
-        path: "/watch/:id/:term/:episode",
+        path: "/watch/:term/:episode",
         name: "Watch",
         props: true,
         component: () => import("../views/watch.vue")
