@@ -1,6 +1,8 @@
 <template>
     <div class="container">
-        <b-icon icon="spinner" custom-class="fa-spin" size="is-large" v-if="!showLoaded"/>
+        <div class="container has-text-centered" id="main" v-if="!showLoaded">
+            <b-icon icon="spinner" custom-class="fa-spin" size="is-large"/>
+        </div>
         <template v-else>
             <section class="hero is-medium">
                 <div class="hero-body cover" v-lazy:background-image="show.pictures[0].large"></div>
