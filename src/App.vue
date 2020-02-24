@@ -107,6 +107,7 @@ export default class App extends Vue {
                 font-size: 64px;
                 height: 80px;
                 color: white;
+                transition: all 0.5 ease;
             }
 
             .subtitle {
