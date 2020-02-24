@@ -10,7 +10,6 @@
 <script lang="ts">
 import Vue from "vue";
 import { Component, Prop } from "vue-property-decorator";
-import { ipcRenderer } from "electron";
 
 @Component
 export default class AnimeCard extends Vue {

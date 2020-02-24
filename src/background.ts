@@ -103,39 +103,76 @@ AnimeDownloader.base = app.getAppPath();
 
 ipcMain.on("fetch-search", async (e, q) => {
     console.log(`Searching shows with the query "${q}".`);
-    const { results } = (await Mal.search().anime({ q, limit: 30 })).data;
-    console.log("Search results found.");
-    e.sender.send("fetched-search", results);
+
+    let response = null;
+
+    try {
+        const { results } = (await Mal.search().anime({ q, limit: 30 })).data;
+        console.log("Search results found.");
+        response = results;
+    } catch (e) {
+        console.error(e);
+    }
+
+    e.sender.send("fetched-search", response);
 });
 
 ipcMain.on("fetch-show", async (e, id) => {
     console.log(`Fetching show (ID: ${id}).`);
-    const show = (await Mal.anime(id).info()).data;
-    const { pictures } = (await Mal.anime(id).pictures()).data;
-    console.log("Show found.");
-    e.sender.send("fetched-show", show, pictures);
+
+    let response = null;
+
+    try {
+        const show = (await Mal.anime(id).info()).data;
+        const { pictures } = (await Mal.anime(id).pictures()).data;
+        show.pictures = pictures;
+        response = show;
+        console.log("Show found.");
+    } catch (e) {
+        console.error(e);
+    }
+    
+    e.sender.send("fetched-show", response);
+});
+
+ipcMain.on("fetch-shows", async (e, ids: number[]) => {
+    function reflect<T>(promise: Promise<T>): Promise<{data: T; fulfilled: boolean}> {
+        return promise
+            .then((resolved) => ({data: resolved, fulfilled: true}))
+            .catch((error) => ({data: error, fulfilled: false}));
+    }
+
+    console.log(`Fetching ${ids.length} shows.`);
+    const shows = await Promise.all(ids.map((id) => reflect(Mal.anime(id).info())));
+    const success = shows.filter(s => s.fulfilled);
+    console.log(`Fetched ${success.length} shows (${ids.length - success.length} failed).`);
+
+    e.sender.send("fetched-shows", success.map((entry) => entry.data.data));
 });
 
 ipcMain.on("fetch-show-episodes", async (e, titles) => {
     console.log(`Fetching show's episodes with ${titles.length} possible titles.`);
     const worker = new Worker("./src/util/sanity.js", { workerData: { titles, appPath: app.getAppPath() }, stdout: true, stderr: true });
     worker.on("message", ([episodeCount, term]) => {
+        console.log(`Fetched ${episodeCount} episodes from show.`);
         e.sender.send("fetched-show-episodes", episodeCount, term);
         worker.terminate();
     });
     worker.stdout.on("data", (log) => console.log("[SANITY] " + log.toString("utf8")));
     worker.stderr.on("data", (err) => {
         console.error("[SANITY] " + err.toString("utf8"));
-        e.sender.send("fetched-show-episodes", null);
+        e.sender.send("fetched-show-episodes", null, null);
     });
 });
 
 ipcMain.on("fetch-episode", async (e, title, episodeNo) => {
+    let response = null;
+
     try {
-        const episode = await AnimeDownloader.getEpisodeQuick("animefreak", title, episodeNo);
-        e.sender.send("fetched-episode", episode);
+        response = await AnimeDownloader.getEpisodeQuick("animefreak", title, episodeNo);
     } catch(e) {
         console.error(e);
-        e.sender.send("fetched-episode", null);
     }
+
+    e.sender.send("fetched-episode", response);
 });

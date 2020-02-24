@@ -37,32 +37,27 @@ import animeCard from "@/components/AnimeCard.vue";
 export default class Watch extends Vue {
     player: HTMLVideoElement | null = null;
     source = "";
-    show: {
-        data: IUnknownObject;
-        pictures: [];
-    } = { data: {}, pictures: [] };
+
+    get show() {
+        return this.$store.state.selectedShow;
+    }
 
     created() {
         ipcRenderer
-            .on("fetched-episode", (_, episode) => {
-                this.source = episode.stream_url;
-            })
-            .on("fetched-show", (_, show, pictures) => {
-                this.show = { data: show, pictures };
-            });
+            .on("fetched-episode", (_, episode) => this.source = episode.stream_url);
     }
 
     beforeRouteEnter(to: Route, from: Route, next: Function) {
         next(async (vm: Watch) => {
             vm.$emit("watch-enter");
-            const { term, episode, id } = vm.$route.params;
+            const { term, episode } = vm.$route.params;
             ipcRenderer.send("fetch-episode", term, episode);
-            ipcRenderer.send("fetch-show", id);
         });
     }
 
     beforeRouteLeave(to: Route, from: Route, next: Function) {
         this.$emit("watch-leave");
+        ipcRenderer.removeAllListeners("fetched-episode");
         next();
     }
 }
