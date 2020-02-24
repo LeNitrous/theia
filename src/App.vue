@@ -43,19 +43,19 @@ import $ from "jquery";
 @Component({ components: { titlebar } })
 export default class App extends Vue {
     isFullView = false;
+    started = false;
     peeking = false;
     search = {
         query: "",
         last: "",
     }
 
-    get started() {
-        return this.search.query.length > 0;
-    }
-
     handleSearch() {
         if (this.search.query.length < 1 || this.search.last == this.search.query)
             return;
+
+        if (!this.started)
+            this.started = true;
 
         ipcRenderer.send("fetch-search", this.search.query);
         this.search.last = this.search.query;
