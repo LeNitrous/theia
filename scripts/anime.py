@@ -1,10 +1,12 @@
-from anime_downloader import get_anime_class
-from anime_downloader.extractors import get_extractor
-from anime_downloader.sites import ALL_ANIME_SITES
 import json
 import sys  
 import subprocess
 import importlib.util
+
+try:
+    from anime_downloader import get_anime_class, ALL_ANIME_SITES
+except ImportError:
+    pass
 
 def create_json(key, message):
     data = {}
