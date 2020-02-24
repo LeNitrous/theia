@@ -1,10 +1,18 @@
 "use strict";
 
-import { app, protocol, BrowserWindow, ipcMain } from "electron";
+import { app, protocol, BrowserWindow, ipcMain, dialog } from "electron";
 import {
     createProtocol,
     /* installVueDevtools */
 } from "vue-cli-plugin-electron-builder/lib";
+import log from "electron-log";
+import Mal from "node-myanimelist";
+import AnimeDownloader from "./util/anime";
+import { Worker } from "worker_threads";
+import { spawn } from "child_process";
+
+Object.assign(console, log.functions);
+AnimeDownloader.base = app.getAppPath();
 const isDevelopment = process.env.NODE_ENV !== "production";
 
 // Keep a global reference of the window object, if you don't, the window will
@@ -14,7 +22,7 @@ let win: BrowserWindow | null;
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([{scheme: "app", privileges: { secure: true, standard: true } }]);
 
-function createWindow () {
+function createWindow() {
     // Create the browser window.
     win = new BrowserWindow({ minWidth: 800, minHeight: 600,
         frame: false,
@@ -72,9 +80,44 @@ app.on("ready", async () => {
     // } catch (e) {
     //   console.error('Vue Devtools failed to install:', e.toString())
     // }
-
     }
-    createWindow();
+    
+    console.log("Initializing...");
+
+    const pythonCheck = spawn("python", ["-V"]);
+    pythonCheck.stdout.on("data", async (data: Buffer) => {
+        const version = data.toString().split(" ")[1].trim();
+        const major = parseInt(version.split(".")[0]);
+
+        console.log(`Python ${version} found.`);
+
+        if (major > 3) {
+            dialog.showMessageBox({
+                title: "theia",
+                type: "error",
+                message: `Python version is too low. Python ${version} was found.`
+            });
+        }
+        else {
+            const { dependency } = (await AnimeDownloader.checkDependency());
+
+            if (!dependency) {
+                console.log("Script dependencies were not installed. Installing...");
+                await AnimeDownloader.installDependency();
+            }
+        
+            createWindow();
+        }
+    });
+
+    pythonCheck.stderr.on("data", () => {
+        console.error("Python is not installed or is not found.");
+        dialog.showMessageBox({
+            title: "theia",
+            type: "error",
+            message: "Python is not installed or is not found."
+        });
+    });
 });
 
 // Exit cleanly on request from parent process in development mode.
@@ -92,50 +135,78 @@ if (isDevelopment) {
     }
 }
 
-import log from "electron-log";
-import Mal from "node-myanimelist";
-import AnimeDownloader from "./util/anime";
-import { Worker } from "worker_threads";
-
-Object.assign(console, log.functions);
-AnimeDownloader.base = app.getAppPath();
-
-
 ipcMain.on("fetch-search", async (e, q) => {
     console.log(`Searching shows with the query "${q}".`);
-    const { results } = (await Mal.search().anime({ q, limit: 30 })).data;
-    console.log("Search results found.");
-    e.sender.send("fetched-search", results);
+
+    let response = null;
+
+    try {
+        const { results } = (await Mal.search().anime({ q, limit: 30 })).data;
+        console.log("Search results found.");
+        response = results;
+    } catch (e) {
+        console.error(e);
+    }
+
+    e.sender.send("fetched-search", response);
 });
 
 ipcMain.on("fetch-show", async (e, id) => {
     console.log(`Fetching show (ID: ${id}).`);
-    const show = (await Mal.anime(id).info()).data;
-    const { pictures } = (await Mal.anime(id).pictures()).data;
-    console.log("Show found.");
-    e.sender.send("fetched-show", show, pictures);
+
+    let response = null;
+
+    try {
+        const show = (await Mal.anime(id).info()).data;
+        const { pictures } = (await Mal.anime(id).pictures()).data;
+        show.pictures = pictures;
+        response = show;
+        console.log("Show found.");
+    } catch (e) {
+        console.error(e);
+    }
+    
+    e.sender.send("fetched-show", response);
+});
+
+ipcMain.on("fetch-shows", async (e, ids: number[]) => {
+    function reflect<T>(promise: Promise<T>): Promise<{data: T; fulfilled: boolean}> {
+        return promise
+            .then((resolved) => ({data: resolved, fulfilled: true}))
+            .catch((error) => ({data: error, fulfilled: false}));
+    }
+
+    console.log(`Fetching ${ids.length} shows.`);
+    const shows = await Promise.all(ids.map((id) => reflect(Mal.anime(id).info())));
+    const success = shows.filter(s => s.fulfilled);
+    console.log(`Fetched ${success.length} shows (${ids.length - success.length} failed).`);
+
+    e.sender.send("fetched-shows", success.map((entry) => entry.data.data));
 });
 
 ipcMain.on("fetch-show-episodes", async (e, titles) => {
     console.log(`Fetching show's episodes with ${titles.length} possible titles.`);
     const worker = new Worker("./src/util/sanity.js", { workerData: { titles, appPath: app.getAppPath() }, stdout: true, stderr: true });
     worker.on("message", ([episodeCount, term]) => {
+        console.log(`Fetched ${episodeCount} episodes from show.`);
         e.sender.send("fetched-show-episodes", episodeCount, term);
         worker.terminate();
     });
     worker.stdout.on("data", (log) => console.log("[SANITY] " + log.toString("utf8")));
     worker.stderr.on("data", (err) => {
         console.error("[SANITY] " + err.toString("utf8"));
-        e.sender.send("fetched-show-episodes", null);
+        e.sender.send("fetched-show-episodes", null, null);
     });
 });
 
 ipcMain.on("fetch-episode", async (e, title, episodeNo) => {
+    let response = null;
+
     try {
-        const episode = await AnimeDownloader.getEpisodeQuick("animefreak", title, episodeNo);
-        e.sender.send("fetched-episode", episode);
+        response = await AnimeDownloader.getEpisodeQuick("animefreak", title, episodeNo);
     } catch(e) {
         console.error(e);
-        e.sender.send("fetched-episode", null);
     }
+
+    e.sender.send("fetched-episode", response);
 });

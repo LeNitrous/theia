@@ -1,9 +1,9 @@
 <template>
     <div id="app">
-        <titlebar :transparent="true" :showTitle="searchStarted" :showBackButton="isFullView"/>
+        <titlebar :transparent="true" :showTitle="started" :showBackButton="isFullView"/>
         <section 
             class="hero main is-fullheight" 
-            :class="{ 'show-router': searchStarted, 'hide': isFullView, 'peeking': peeking }">
+            :class="{ 'show-router': started, 'hide': isFullView, 'peeking': peeking }">
             <div class="hero-body" :class="{ 'hide-search': isFullView }">
                 <div class="container">
                     <p class="logo">
@@ -15,13 +15,13 @@
                             icon="search"
                             icon-clickable
                             :expanded="true"
-                            v-model="query"
+                            v-model="search.query"
                             @keyup.enter.native="handleSearch()"/>
                     </b-field>
                 </div>
             </div>
         </section>
-        <div class="router-view" :class="{ 'show-router': searchStarted, 'hide-search': isFullView }">
+        <div class="router-view" :class="{ 'show-router': started, 'hide-search': isFullView }">
             <vue-scroll>
                 <router-view
                     @show-enter="isFullView = true"
@@ -42,25 +42,27 @@ import $ from "jquery";
 
 @Component({ components: { titlebar } })
 export default class App extends Vue {
-    searchStarted = false;
     isFullView = false;
+    started = false;
     peeking = false;
-    query = "";
+    search = {
+        query: "",
+        last: "",
+    }
 
     handleSearch() {
-        if (this.query.length < 1)
+        if (this.search.query.length < 1 || this.search.last == this.search.query)
             return;
 
-        if (!this.searchStarted)
-            this.searchStarted = true;
+        if (!this.started)
+            this.started = true;
 
-        ipcRenderer.send("fetch-search", this.query);
+        ipcRenderer.send("fetch-search", this.search.query);
+        this.search.last = this.search.query;
         
         this.$router.push({ 
             name: "Search", 
-            query: {
-                q: this.query
-            } 
+            query: { q: this.search.query } 
         });
     }
 
@@ -105,6 +107,7 @@ export default class App extends Vue {
                 font-size: 64px;
                 height: 80px;
                 color: white;
+                transition: all 0.5 ease;
             }
 
             .subtitle {

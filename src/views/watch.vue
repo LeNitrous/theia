@@ -42,7 +42,6 @@ import { Component } from "vue-property-decorator";
 import { ipcRenderer } from "electron";
 import { Route } from "vue-router";
 import animeCard from "@/components/AnimeCard.vue";
-import $ from "jquery";
 
 @Component({ components: { animeCard } })
 export default class Watch extends Vue {
@@ -50,20 +49,14 @@ export default class Watch extends Vue {
     isLoading = false;
     player: HTMLVideoElement | null = null;
     source = "";
-    show: {
-        data: IUnknownObject;
-        pictures: [];
-    } = { data: {}, pictures: [] };
+
+    get show() {
+        return this.$store.state.selectedShow;
+    }
 
     created() {
         ipcRenderer
-            .on("fetched-episode", (_, episode) => {
-                this.source = episode.stream_url;
-            })
-            .on("fetched-show", (_, show, pictures) => {
-                this.show = { data: show, pictures };
-                this.isLoading = false;
-            });
+            .on("fetched-episode", (_, episode) => this.source = episode.stream_url);
 
         document.addEventListener("fullscreenchange", () => {
             this.isFullscreen = !this.isFullscreen;
@@ -73,21 +66,16 @@ export default class Watch extends Vue {
     beforeRouteEnter(to: Route, from: Route, next: Function) {
         next(async (vm: Watch) => {
             vm.$emit("watch-enter");
-            const { term, episode, id } = vm.$route.params;
+            const { term, episode } = vm.$route.params;
             ipcRenderer.send("fetch-episode", term, episode);
-            ipcRenderer.send("fetch-show", id);
         });
     }
 
     beforeRouteLeave(to: Route, from: Route, next: Function) {
         this.$emit("watch-leave");
+        ipcRenderer.removeAllListeners("fetched-episode");
         next();
     }
-}
-
-interface IUnknownObject {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [key: string]: any | [];
 }
 </script>
 

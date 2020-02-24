@@ -1,5 +1,6 @@
 import { PythonShell } from "python-shell";
 import * as path from "path";
+import { Dictionary } from 'vue-router/types/router';
 
 export default abstract class AnimeDownloader {
     private static run<T> (...args: string[]): Promise<T> {
@@ -43,6 +44,14 @@ export default abstract class AnimeDownloader {
 
     static search(site: string, term: string): Promise<ISearchResponse[]> {
         return AnimeDownloader.run<ISearchResponse[]>("--search", term, site);
+    }
+
+    static installDependency(): Promise<Dictionary<string>> {
+        return AnimeDownloader.run<Dictionary<string>>("--install-deps");
+    }
+
+    static checkDependency(): Promise<Dictionary<boolean>> {
+        return AnimeDownloader.run<Dictionary<boolean>>("--check-deps");
     }
 }
 

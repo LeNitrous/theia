@@ -1,8 +1,11 @@
 <template>
     <div class="container has-text-centered" id="main">
-        <b-icon icon="spinner" custom-class="fa-spin" size="is-large" v-if="isLoading"/>
-        <div class="container" v-if="!isLoading">
-            <div class="columns is-mobile is-multiline">
+        <b-icon icon="spinner" custom-class="fa-spin" size="is-large" v-if="!loaded"/>
+        <div class="container" v-else>
+            <div class="container has-text-left" v-if="results.length < 1">
+                <p>There were no results found.</p>
+            </div>
+            <div class="columns is-mobile is-multiline" v-else>
                 <div class="column is-narrow" v-for="(item, index) in results" :key="index">
                     <anime-card :show="item"/>
                 </div>
@@ -13,20 +16,15 @@
 
 <script lang="ts">
 import Vue from "vue";
-import { Component, Prop } from "vue-property-decorator";
+import { Component } from "vue-property-decorator";
 import { Route } from "vue-router";
 import { ipcRenderer } from "electron";
 import animeCard from "@/components/AnimeCard.vue";
 
 @Component({ components: { animeCard } })
 export default class Search extends Vue {
-    @Prop(String) query!: string;
-    @Prop(String) source!: string;
-
-    mounted() {
-        ipcRenderer.on("fetched-search", (_, results) => {
-            this.results = results;
-        });
+    created() {
+        ipcRenderer.on("fetched-search", (_, results) => this.results = results);
     }
 
     set results(value) {
@@ -34,11 +32,11 @@ export default class Search extends Vue {
     }
 
     get results() {
-        return this.$store.state.searchResults;
+        return this.$store.state.results;
     }
 
-    get isLoading() {
-        return this.results.length < 1;
+    get loaded() {
+        return this.results !== undefined;
     }
 
     beforeRouteEnter(to: Route, from: Route, next: Function) {
@@ -51,9 +49,7 @@ export default class Search extends Vue {
     }
 
     beforeRouteUpdate(to: Route, from: Route, next: Function) {
-        if (from.name != "Show")
-            this.results = [];
-        
+        this.results = undefined;
         next();
     }
 }

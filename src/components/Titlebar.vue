@@ -137,7 +137,7 @@ body {
             overflow-x: hidden;
             font-size: 12px;
             color: white;
-            transition: margin 0.5s ease;
+            transition: all 0.5s ease;
 
             span {
                 overflow: hidden;
