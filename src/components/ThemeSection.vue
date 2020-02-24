@@ -19,8 +19,12 @@ export default class ThemeSection extends Vue {
 
     get formatted(): string[][] {
         return this.themes.map((s) => {
-            const [title, artist] = s.slice(0, s.indexOf("(", s.indexOf("by"))).trim().split("by").map((s) => s.trim());
-            return [title.replace(/"/g, ""), artist];
+            const match = s.match(/"?(.*?)"? by (.+)/);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            const title = match![1];
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            const artist = match![2];
+            return [title, artist];
         });
     }
 }
