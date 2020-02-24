@@ -1,27 +1,37 @@
 <template>
-    <!----
-    <figure class="image is-16by9">
-        <div class="player has-ratio">
+    <section class="hero is-fullheight-with-titlebar">
+        <div class="has-text-centered" v-if="isLoading">
+            <b-icon icon="spinner" custom-class="fa-spin" size="is-large"/>
+        </div>
+        <div class="player hero-body is-paddingless" v-else>
             <div class="overlay controls">
-                <div class="module">
-                    <div class="columns has-text-left">
-                        <div class="column is-narrow">
-                            <anime-card :show="show.data" is-static/>
+                <div class="columns has-text-left">
+                    <div class="column is-narrow">
+                        <anime-card :show="show.data" is-static/>
+                    </div>
+                    <div class="column">
+                        <h1 @click="$router.push({ name: 'Show', params: { id: $route.params.id } })">{{ show.data.title }}</h1>
+                        <p>Episode {{ $route.params.episode }}</p>
+                    </div>
+                </div>
+                <div class="system">
+                    <b-icon icon="play" size="is-large"/>
+                    <div>
+                        <div class="seek">
+                            <div class="progress"></div>
+                            <div class="loaded"></div>
                         </div>
-                        <div class="column">
-                            <h1 @click="$router.push({ name: 'Show', params: { id: $route.params.id } })">{{ show.data.title }}</h1>
-                            <p>Episode {{ $route.params.episode }}</p>
+                        <div class="other-controls">
+                            <b-icon icon="step-backward"/>
+                            <b-icon icon="step-forward"/>
+                            <span class="timestamp">00:00 / 00:00</span>
+                            <div></div>
+                            <b-icon icon="expand" @click="$('.player').requestFullscreen()"/>
                         </div>
                     </div>
                 </div>
             </div>
-            <video controls class="has-ratio" width="640" height="360" :src="source"/>
-        </div>
-    </figure>
-    ---->
-    <section class="hero is-fullheight-with-titlebar">
-        <div class="hero-body is-paddingless">
-            <video controls class="video" width="640" height="360" :src="source"/>
+            <video class="video" ref="video" :class="{ 'non-fullscreen': !isFullscreen }" width="640" height="360" :src="source"/>
         </div>
     </section>
 </template>
@@ -32,9 +42,12 @@ import { Component } from "vue-property-decorator";
 import { ipcRenderer } from "electron";
 import { Route } from "vue-router";
 import animeCard from "@/components/AnimeCard.vue";
+import $ from "jquery";
 
 @Component({ components: { animeCard } })
 export default class Watch extends Vue {
+    isFullscreen = false;
+    isLoading = false;
     player: HTMLVideoElement | null = null;
     source = "";
     show: {
@@ -49,7 +62,12 @@ export default class Watch extends Vue {
             })
             .on("fetched-show", (_, show, pictures) => {
                 this.show = { data: show, pictures };
+                this.isLoading = false;
             });
+
+        document.addEventListener("fullscreenchange", () => {
+            this.isFullscreen = !this.isFullscreen;
+        });
     }
 
     beforeRouteEnter(to: Route, from: Route, next: Function) {
@@ -87,11 +105,15 @@ interface IUnknownObject {
 .video {
     object-fit: contain;
     width: 100%;
-    height: calc(100vh - 30px);
+
+    &.non-fullscreen {
+        height: calc(100vh - 30px);
+    }
 }
 
 .player {
     position: relative;
+    background-color: black !important;
 
     .overlay {
         position: absolute;
@@ -100,16 +122,36 @@ interface IUnknownObject {
         left: 0;
         opacity: 0;
         width: 100%;
-        height: auto;
+        height: 100%;
 
         &.controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
             background: linear-gradient(to top,
-                rgba(0, 0, 0, 0) 50%,
+                rgba(0, 0, 0, 0) 25%,
+                rgba(0, 0, 0, 0.7) 0%
+                rgba(0, 0, 0, 0) 75%,
                 rgba(0, 0, 0, 0.7) 100%);
             transition: opacity .5s ease;
+            padding: 1rem;
 
-            .module {
-                padding: 1rem;
+            .system {
+                display: grid;
+                grid-template-columns: 60px auto;
+
+                .seek {
+                    height: 5px;
+                    width: 100%;
+                    background: darkgray;
+                    opacity: 0.1;
+                }
+
+                .other-controls {
+                    padding-top: 10px;
+                    display: grid;
+                    grid-template-columns: 30px 30px 200px auto 30px;
+                }
             }
 
             &:hover {
