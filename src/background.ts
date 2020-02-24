@@ -1,10 +1,18 @@
 "use strict";
 
-import { app, protocol, BrowserWindow, ipcMain } from "electron";
+import { app, protocol, BrowserWindow, ipcMain, dialog } from "electron";
 import {
     createProtocol,
     /* installVueDevtools */
 } from "vue-cli-plugin-electron-builder/lib";
+import log from "electron-log";
+import Mal from "node-myanimelist";
+import AnimeDownloader from "./util/anime";
+import { Worker } from "worker_threads";
+import { spawn } from "child_process";
+
+Object.assign(console, log.functions);
+AnimeDownloader.base = app.getAppPath();
 const isDevelopment = process.env.NODE_ENV !== "production";
 
 // Keep a global reference of the window object, if you don't, the window will
@@ -14,7 +22,7 @@ let win: BrowserWindow | null;
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([{scheme: "app", privileges: { secure: true, standard: true } }]);
 
-function createWindow () {
+function createWindow() {
     // Create the browser window.
     win = new BrowserWindow({ minWidth: 800, minHeight: 600,
         frame: false,
@@ -72,9 +80,44 @@ app.on("ready", async () => {
     // } catch (e) {
     //   console.error('Vue Devtools failed to install:', e.toString())
     // }
-
     }
-    createWindow();
+    
+    console.log("Initializing...");
+
+    const pythonCheck = spawn("python", ["-V"]);
+    pythonCheck.stdout.on("data", async (data: Buffer) => {
+        const version = data.toString().split(" ")[1].trim();
+        const major = parseInt(version.split(".")[0]);
+
+        console.log(`Python ${version} found.`);
+
+        if (major > 3) {
+            dialog.showMessageBox({
+                title: "theia",
+                type: "error",
+                message: `Python version is too low. Python ${version} was found.`
+            });
+        }
+        else {
+            const { dependency } = (await AnimeDownloader.checkDependency());
+
+            if (!dependency) {
+                console.log("Script dependencies were not installed. Installing...");
+                await AnimeDownloader.installDependency();
+            }
+        
+            createWindow();
+        }
+    });
+
+    pythonCheck.stderr.on("data", () => {
+        console.error("Python is not installed or is not found.");
+        dialog.showMessageBox({
+            title: "theia",
+            type: "error",
+            message: "Python is not installed or is not found."
+        });
+    });
 });
 
 // Exit cleanly on request from parent process in development mode.
@@ -91,15 +134,6 @@ if (isDevelopment) {
         });
     }
 }
-
-import log from "electron-log";
-import Mal from "node-myanimelist";
-import AnimeDownloader from "./util/anime";
-import { Worker } from "worker_threads";
-
-Object.assign(console, log.functions);
-AnimeDownloader.base = app.getAppPath();
-
 
 ipcMain.on("fetch-search", async (e, q) => {
     console.log(`Searching shows with the query "${q}".`);
